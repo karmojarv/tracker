@@ -224,12 +224,13 @@
   </div>
 
   <div class="log-panel hidden" id="logPanel">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div class="log-date" id="logDate"></div>
-      <div id="logViewToggle" style="font-size:10px;color:var(--fg3);letter-spacing:0.12em;cursor:pointer;text-transform:uppercase;padding:4px 0 4px 12px">View logged</div>
+    <div class="log-date" id="logDate" style="cursor:pointer" title="Tap to switch view"></div>
+
+    <div id="logSummaryView">
+      <div id="logSummaryContent" style="display:flex;flex-direction:column;gap:1px;margin-top:14px"></div>
     </div>
 
-    <div id="logEntryView">
+    <div id="logEntryView" class="hidden" style="margin-top:14px">
       <div id="gymFields" class="hidden">
         <div class="log-field">
           <div class="log-label">Session — leave blank to unlog</div>
@@ -250,10 +251,6 @@
       </div>
       <button class="log-save" id="saveBtn">Save</button>
       <button class="log-delete" id="deleteBtn">Clear entry</button>
-    </div>
-
-    <div id="logSummaryView" class="hidden">
-      <div id="logSummaryContent" style="display:flex;flex-direction:column;gap:1px"></div>
     </div>
   </div>
 
@@ -460,7 +457,7 @@ function mkCell(y,m,d,other,isToday,isLog,key){
 }
 function selectDate(y,m,d){
   state.selectedDate={y,m,d};
-  state.logView='entry';
+  state.logView='summary';
   const key=dk(y,m,d);
   const entry=data[key]||{};
   const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -471,7 +468,7 @@ function selectDate(y,m,d){
   document.getElementById('creatineDose').value=entry.creatineDose||'';
   document.getElementById('gymNotes').value=entry.gymNotes||'';
   updateTabFields();
-  showLogView('entry');
+  showLogView('summary');
   showPanel('log');
 }
 
@@ -480,8 +477,11 @@ function showLogView(which){
   const isEntry=which==='entry';
   document.getElementById('logEntryView').classList.toggle('hidden',!isEntry);
   document.getElementById('logSummaryView').classList.toggle('hidden',isEntry);
-  document.getElementById('logViewToggle').textContent=isEntry?'View logged':'Log entry';
-  if(!isEntry) renderLogSummary();
+  if(isEntry){
+    updateTabFields();
+  } else {
+    renderLogSummary();
+  }
 }
 
 function renderLogSummary(){
@@ -495,7 +495,7 @@ function renderLogSummary(){
   if(e.creatine===true) rows.push(['Creatine',(e.creatineDose||5)+'g']);
   const el=document.getElementById('logSummaryContent');
   if(rows.length===0){
-    el.innerHTML='<div style="font-size:12px;color:var(--fg3);padding:8px 0">Nothing logged for this day.</div>';
+    el.innerHTML='<div style="font-size:12px;color:var(--fg3);padding:8px 0">Nothing logged — tap date to add entry.</div>';
   } else {
     el.innerHTML=rows.map(([k,v])=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:12px">
@@ -505,8 +505,8 @@ function renderLogSummary(){
   }
 }
 
-document.getElementById('logViewToggle').addEventListener('click',()=>{
-  showLogView(state.logView==='entry'?'summary':'entry');
+document.getElementById('logDate').addEventListener('click',()=>{
+  showLogView(state.logView==='summary'?'entry':'summary');
 });
 
 function updateTabFields(){
@@ -550,8 +550,7 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   flashSave();
   renderCalendar();
   renderStats();
-  showPanel('stats');
-  state.selectedDate=null;
+  showLogView('summary');
 });
 document.getElementById('deleteBtn').addEventListener('click',async()=>{
   if(!state.selectedDate)return;
