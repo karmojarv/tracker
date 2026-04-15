@@ -224,13 +224,16 @@
   </div>
 
   <div class="log-panel hidden" id="logPanel">
-    <div class="log-date" id="logDate" style="cursor:pointer" title="Tap to switch view"></div>
-
-    <div id="logSummaryView">
-      <div id="logSummaryContent" style="display:flex;flex-direction:column;gap:1px;margin-top:14px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="log-date" id="logDate"></div>
+      <button id="logViewToggleBtn" style="background:none;border:1px solid var(--border);color:var(--fg3);font-family:var(--font);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:5px 10px;border-radius:var(--radius);cursor:pointer">Edit</button>
     </div>
 
-    <div id="logEntryView" class="hidden" style="margin-top:14px">
+    <div id="logSummaryView">
+      <div id="logSummaryContent" style="display:flex;flex-direction:column;gap:1px"></div>
+    </div>
+
+    <div id="logEntryView" class="hidden">
       <div id="gymFields" class="hidden">
         <div class="log-field">
           <div class="log-label">Session — leave blank to unlog</div>
@@ -477,6 +480,7 @@ function showLogView(which){
   const isEntry=which==='entry';
   document.getElementById('logEntryView').classList.toggle('hidden',!isEntry);
   document.getElementById('logSummaryView').classList.toggle('hidden',isEntry);
+  document.getElementById('logViewToggleBtn').textContent=isEntry?'Done':'Edit';
   if(isEntry){
     updateTabFields();
   } else {
@@ -505,7 +509,7 @@ function renderLogSummary(){
   }
 }
 
-document.getElementById('logDate').addEventListener('click',()=>{
+document.getElementById('logViewToggleBtn').addEventListener('click',()=>{
   showLogView(state.logView==='summary'?'entry':'summary');
 });
 
@@ -551,6 +555,7 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   renderCalendar();
   renderStats();
   showLogView('summary');
+  document.getElementById('logViewToggleBtn').textContent='Edit';
 });
 document.getElementById('deleteBtn').addEventListener('click',async()=>{
   if(!state.selectedDate)return;
