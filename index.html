@@ -224,27 +224,37 @@
   </div>
 
   <div class="log-panel hidden" id="logPanel">
-    <div class="log-date" id="logDate"></div>
-    <div id="weightFields">
-      <div class="log-field">
-        <div class="log-label">Weight (kg)</div>
-        <input class="log-input" type="text" id="weightVal" placeholder="0.0" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*">
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="log-date" id="logDate"></div>
+      <div id="logViewToggle" style="font-size:10px;color:var(--fg3);letter-spacing:0.12em;cursor:pointer;text-transform:uppercase;padding:4px 0 4px 12px">View logged</div>
     </div>
-    <div id="creatineFields" class="hidden">
-      <div class="log-field">
-        <div class="log-label">Dose (g) — leave blank to unlog</div>
-        <input class="log-input" type="text" id="creatineDose" placeholder="5" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" autocomplete="off">
+
+    <div id="logEntryView">
+      <div id="gymFields" class="hidden">
+        <div class="log-field">
+          <div class="log-label">Session — leave blank to unlog</div>
+          <input class="log-input" type="text" id="gymNotes" placeholder="push / pull / legs..." autocomplete="off">
+        </div>
       </div>
-    </div>
-    <div id="gymFields" class="hidden">
-      <div class="log-field">
-        <div class="log-label">Session — leave blank to unlog</div>
-        <input class="log-input" type="text" id="gymNotes" placeholder="push / pull / legs..." autocomplete="off">
+      <div id="weightFields" class="hidden">
+        <div class="log-field">
+          <div class="log-label">Weight (kg)</div>
+          <input class="log-input" type="text" id="weightVal" placeholder="0.0" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*">
+        </div>
       </div>
+      <div id="creatineFields" class="hidden">
+        <div class="log-field">
+          <div class="log-label">Dose (g) — leave blank to unlog</div>
+          <input class="log-input" type="text" id="creatineDose" placeholder="5" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" autocomplete="off">
+        </div>
+      </div>
+      <button class="log-save" id="saveBtn">Save</button>
+      <button class="log-delete" id="deleteBtn">Clear entry</button>
     </div>
-    <button class="log-save" id="saveBtn">Save</button>
-    <button class="log-delete" id="deleteBtn">Clear entry</button>
+
+    <div id="logSummaryView" class="hidden">
+      <div id="logSummaryContent" style="display:flex;flex-direction:column;gap:1px"></div>
+    </div>
   </div>
 
   <div class="stats hidden" id="statsPanel">
@@ -450,6 +460,7 @@ function mkCell(y,m,d,other,isToday,isLog,key){
 }
 function selectDate(y,m,d){
   state.selectedDate={y,m,d};
+  state.logView='entry';
   const key=dk(y,m,d);
   const entry=data[key]||{};
   const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -459,14 +470,50 @@ function selectDate(y,m,d){
   document.getElementById('weightVal').value=entry.weight!==undefined?entry.weight:'';
   document.getElementById('creatineDose').value=entry.creatineDose||'';
   document.getElementById('gymNotes').value=entry.gymNotes||'';
-  updateTabFields();showPanel('log');
+  updateTabFields();
+  showLogView('entry');
+  showPanel('log');
 }
+
+function showLogView(which){
+  state.logView=which;
+  const isEntry=which==='entry';
+  document.getElementById('logEntryView').classList.toggle('hidden',!isEntry);
+  document.getElementById('logSummaryView').classList.toggle('hidden',isEntry);
+  document.getElementById('logViewToggle').textContent=isEntry?'View logged':'Log entry';
+  if(!isEntry) renderLogSummary();
+}
+
+function renderLogSummary(){
+  if(!state.selectedDate)return;
+  const {y,m,d}=state.selectedDate;
+  const key=dk(y,m,d);
+  const e=data[key]||{};
+  const rows=[];
+  if(e.gym===true) rows.push(['Gym',e.gymNotes||'done']);
+  if(e.weight!==undefined) rows.push(['Weight',e.weight.toFixed(1)+' kg']);
+  if(e.creatine===true) rows.push(['Creatine',(e.creatineDose||5)+'g']);
+  const el=document.getElementById('logSummaryContent');
+  if(rows.length===0){
+    el.innerHTML='<div style="font-size:12px;color:var(--fg3);padding:8px 0">Nothing logged for this day.</div>';
+  } else {
+    el.innerHTML=rows.map(([k,v])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:var(--radius);font-size:12px">
+        <span style="color:var(--fg3);letter-spacing:0.1em;text-transform:uppercase;font-size:10px">${k}</span>
+        <span>${v}</span>
+      </div>`).join('');
+  }
+}
+
+document.getElementById('logViewToggle').addEventListener('click',()=>{
+  showLogView(state.logView==='entry'?'summary':'entry');
+});
 
 function updateTabFields(){
   const t=state.tab;
+  document.getElementById('gymFields').classList.toggle('hidden',t!=='gym');
   document.getElementById('weightFields').classList.toggle('hidden',t!=='weight');
   document.getElementById('creatineFields').classList.toggle('hidden',t!=='creatine');
-  document.getElementById('gymFields').classList.toggle('hidden',t!=='gym');
 }
 function showPanel(w){
   document.getElementById('logPanel').classList.toggle('hidden',w!=='log');
