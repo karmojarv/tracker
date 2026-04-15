@@ -111,22 +111,7 @@
     padding: 10px 12px; border-radius: var(--radius); outline: none;
   }
   .log-input:focus { border-color: var(--fg3); }
-  .log-toggle {
-    display: flex; align-items: center; justify-content: space-between;
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 10px 12px; cursor: pointer;
-  }
-  .log-toggle-label { font-size: 13px; color: var(--fg2); }
-  .toggle-pill {
-    width: 36px; height: 20px; border-radius: 10px; background: var(--bg3);
-    position: relative; transition: background 0.2s; border: 1px solid var(--border);
-  }
-  .toggle-pill.on { background: var(--fg); border-color: var(--fg); }
-  .toggle-pill::after {
-    content: ''; position: absolute; top: 2px; left: 2px;
-    width: 14px; height: 14px; border-radius: 50%; background: var(--bg); transition: transform 0.2s;
-  }
-  .toggle-pill.on::after { transform: translateX(16px); }
+
   .log-save {
     width: 100%; padding: 12px; background: var(--fg); color: var(--bg);
     border: none; font-family: var(--font); font-size: 11px;
@@ -243,32 +228,18 @@
     <div id="weightFields">
       <div class="log-field">
         <div class="log-label">Weight (kg)</div>
-        <input class="log-input" type="number" id="weightVal" step="0.1" placeholder="0.0" inputmode="decimal">
+        <input class="log-input" type="text" id="weightVal" placeholder="0.0" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*">
       </div>
     </div>
     <div id="creatineFields" class="hidden">
       <div class="log-field">
-        <div class="log-label">Taken today</div>
-        <div class="log-toggle" id="creatineToggle">
-          <span class="log-toggle-label">Creatine</span>
-          <div class="toggle-pill" id="creatinePill"></div>
-        </div>
-      </div>
-      <div class="log-field">
-        <div class="log-label">Dose (g)</div>
-        <input class="log-input" type="number" id="creatineDose" step="0.5" value="5" inputmode="decimal">
+        <div class="log-label">Dose (g) — leave blank to unlog</div>
+        <input class="log-input" type="text" id="creatineDose" placeholder="5" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" autocomplete="off">
       </div>
     </div>
     <div id="gymFields" class="hidden">
       <div class="log-field">
-        <div class="log-label">Trained today</div>
-        <div class="log-toggle" id="gymToggle">
-          <span class="log-toggle-label">Gym</span>
-          <div class="toggle-pill" id="gymPill"></div>
-        </div>
-      </div>
-      <div class="log-field">
-        <div class="log-label">Notes (optional)</div>
+        <div class="log-label">Session — leave blank to unlog</div>
         <input class="log-input" type="text" id="gymNotes" placeholder="push / pull / legs..." autocomplete="off">
       </div>
     </div>
@@ -330,7 +301,7 @@ function initSB(url, anonKey) {
 }
 
 let SB=null, currentUser=null;
-let state={tab:'weight',year:0,month:0,selectedDate:null,creatineOn:false,gymOn:false};
+let state={tab:'weight',year:0,month:0,selectedDate:null};
 let data={};
 
 function dk(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
@@ -489,16 +460,11 @@ function selectDate(y,m,d){
   const dow=new Date(y,m,d).getDay();
   document.getElementById('logDate').textContent=`${DA[(dow+6)%7]} ${d} ${MO[m]} ${y}`;
   document.getElementById('weightVal').value=entry.weight!==undefined?entry.weight:'';
-  document.getElementById('creatineDose').value=entry.creatineDose||5;
-  state.creatineOn=entry.creatine===true;
-  state.gymOn=entry.gym===true;
+  document.getElementById('creatineDose').value=entry.creatineDose||'';
   document.getElementById('gymNotes').value=entry.gymNotes||'';
-  updatePills();updateTabFields();showPanel('log');
+  updateTabFields();showPanel('log');
 }
-function updatePills(){
-  document.getElementById('creatinePill').classList.toggle('on',state.creatineOn);
-  document.getElementById('gymPill').classList.toggle('on',state.gymOn);
-}
+
 function updateTabFields(){
   const t=state.tab;
   document.getElementById('weightFields').classList.toggle('hidden',t!=='weight');
@@ -518,13 +484,15 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   if(!data[key])data[key]={};
   const e=data[key];
   if(state.tab==='weight'){
-    const v=parseFloat(document.getElementById('weightVal').value);
+    const v=parseFloat(document.getElementById('weightVal').value.replace(',','.'));
     if(!isNaN(v)&&v>0)e.weight=v;else delete e.weight;
   }else if(state.tab==='creatine'){
-    if(state.creatineOn){e.creatine=true;e.creatineDose=parseFloat(document.getElementById('creatineDose').value)||5;}
+    const dose=parseFloat(document.getElementById('creatineDose').value.replace(',','.'));
+    if(!isNaN(dose)&&dose>0){e.creatine=true;e.creatineDose=dose;}
     else{delete e.creatine;delete e.creatineDose;}
   }else if(state.tab==='gym'){
-    if(state.gymOn){e.gym=true;const n=document.getElementById('gymNotes').value.trim();if(n)e.gymNotes=n;else delete e.gymNotes;}
+    const n=document.getElementById('gymNotes').value.trim();
+    if(n){e.gym=true;e.gymNotes=n;}
     else{delete e.gym;delete e.gymNotes;}
   }
   if(Object.keys(e).length===0){delete data[key];await del(key);}
@@ -610,8 +578,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   t.classList.add('active');
   state.selectedDate=null;showPanel('none');renderCalendar();renderStats();showPanel('stats');
 }));
-document.getElementById('creatineToggle').addEventListener('click',()=>{state.creatineOn=!state.creatineOn;updatePills();});
-document.getElementById('gymToggle').addEventListener('click',()=>{state.gymOn=!state.gymOn;updatePills();});
+
 
 // CONFIG FORM
 document.getElementById('cfgSave').addEventListener('click',()=>{
