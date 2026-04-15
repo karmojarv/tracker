@@ -95,8 +95,8 @@
   .cal-day.other-month { color: var(--fg3); }
   .cal-day.today { border-color: var(--fg3); }
   .cal-day.today .day-num { font-weight: 600; }
-  .cal-day.logged { background: var(--fg); color: var(--bg); }
-  .cal-day.logged:hover { opacity: 0.85; }
+  .cal-day.logged { background: #c8c8c8; color: #0a0a0a; }
+  .cal-day.logged:hover { background: #b8b8b8; }
   .cal-day.empty { cursor: default; }
   .day-num { font-size: 12px; line-height: 1; }
   .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--bg); margin-top: 2px; opacity: 0.5; }
@@ -154,7 +154,7 @@
   .user-menu-item:hover { background: var(--bg2); color: var(--fg); }
 
   @media (prefers-color-scheme: dark) {
-    .cal-day.logged { background: #f0f0f0; color: #0a0a0a; }
+    .cal-day.logged { background: #444; color: #f0f0f0; }
   }
 </style>
 </head>
@@ -427,7 +427,7 @@ function renderCalendar(){
   }
   for(let d=1;d<=dim;d++){
     const key=dk(year,month,d);
-    grid.appendChild(mkCell(year,month,d,false,key===todayStr,isLogged(key,tab),key));
+    grid.appendChild(mkCell(year,month,d,false,key===todayStr,isLogged(key),key));
   }
   const total=off+dim;
   const rem=total%7===0?0:7-(total%7);
@@ -436,12 +436,9 @@ function renderCalendar(){
     grid.appendChild(mkCell(y,m,d,true));
   }
 }
-function isLogged(key,tab){
+function isLogged(key){
   const e=data[key];if(!e)return false;
-  if(tab==='weight')return e.weight!==undefined;
-  if(tab==='creatine')return e.creatine===true;
-  if(tab==='gym')return e.gym===true;
-  return false;
+  return e.weight!==undefined||e.creatine===true||e.gym===true;
 }
 function mkCell(y,m,d,other,isToday,isLog,key){
   const el=document.createElement('div');
@@ -477,6 +474,11 @@ function showPanel(w){
 }
 
 // SAVE/DELETE
+function flashSave(){
+  const btn=document.getElementById('saveBtn');
+  btn.textContent='Saved';
+  setTimeout(()=>btn.textContent='Save',1200);
+}
 document.getElementById('saveBtn').addEventListener('click',async()=>{
   if(!state.selectedDate)return;
   const {y,m,d}=state.selectedDate;
@@ -493,12 +495,16 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   }else if(state.tab==='gym'){
     const n=document.getElementById('gymNotes').value.trim();
     if(n){e.gym=true;e.gymNotes=n;}
-    else{delete e.gym;delete e.gymNotes;}
+    else{e.gym=true;delete e.gymNotes;}
   }
   if(Object.keys(e).length===0){delete data[key];await del(key);}
   else await push(key,e);
   localStorage.setItem(STORE_KEY,JSON.stringify(data));
-  renderCalendar();showPanel('none');state.selectedDate=null;
+  flashSave();
+  renderCalendar();
+  renderStats();
+  showPanel('stats');
+  state.selectedDate=null;
 });
 document.getElementById('deleteBtn').addEventListener('click',async()=>{
   if(!state.selectedDate)return;
@@ -513,7 +519,10 @@ document.getElementById('deleteBtn').addEventListener('click',async()=>{
     else await push(key,data[key]);
   }
   localStorage.setItem(STORE_KEY,JSON.stringify(data));
-  renderCalendar();showPanel('none');state.selectedDate=null;
+  renderCalendar();
+  renderStats();
+  showPanel('stats');
+  state.selectedDate=null;
 });
 
 // STATS
