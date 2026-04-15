@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TRACK">
+<meta name="theme-color" content="#ffffff">
+<title>TRACK</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --bg: #fff;
+    --bg2: #f5f5f5;
+    --bg3: #ebebeb;
+    --fg: #0a0a0a;
+    --fg2: #555;
+    --fg3: #999;
+    --border: #e0e0e0;
+    --accent: #0a0a0a;
+    --radius: 4px;
+    --font: 'DM Mono', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --bg2: #181818;
+      --bg3: #242424;
+      --fg: #f0f0f0;
+      --fg2: #aaa;
+      --fg3: #555;
+      --border: #2a2a2a;
+      --accent: #f0f0f0;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; }
+  body { max-width: 480px; margin: 0 auto; padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0); }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-size: 11px; letter-spacing: 0.2em; color: var(--fg3); text-transform: uppercase; }
+  .month-nav { display: flex; align-items: center; gap: 16px; }
+  .month-label { font-size: 13px; letter-spacing: 0.05em; min-width: 100px; text-align: center; }
+  .nav-btn { background: none; border: none; cursor: pointer; color: var(--fg2); font-family: var(--font); font-size: 16px; padding: 4px 8px; }
+  .nav-btn:hover { color: var(--fg); }
+
+  /* TABS */
+  .tabs {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 12px 4px; text-align: center; cursor: pointer;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--fg3); border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab.active { color: var(--fg); border-bottom-color: var(--fg); }
+
+  /* CALENDAR GRID */
+  .cal-wrap { padding: 16px 12px; }
+  .day-headers {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 8px;
+  }
+  .day-hdr { text-align: center; font-size: 10px; color: var(--fg3); letter-spacing: 0.1em; padding: 4px 0; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-day {
+    aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; border-radius: var(--radius);
+    border: 1px solid transparent;
+    position: relative; transition: background 0.1s;
+    font-size: 13px;
+  }
+  .cal-day:hover { background: var(--bg2); }
+  .cal-day.other-month { color: var(--fg3); }
+  .cal-day.today { border-color: var(--fg3); }
+  .cal-day.today .day-num { font-weight: 600; }
+  .cal-day.logged { background: var(--fg); color: var(--bg); }
+  .cal-day.logged:hover { opacity: 0.85; }
+  .cal-day.empty { cursor: default; }
+  .day-num { font-size: 12px; line-height: 1; }
+  .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--bg); margin-top: 2px; opacity: 0.5; }
+  .cal-day:not(.logged) .day-dot { background: var(--fg); opacity: 0; }
+
+  /* LOG PANEL */
+  .log-panel {
+    border-top: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .log-date { font-size: 11px; color: var(--fg3); letter-spacing: 0.15em; margin-bottom: 14px; text-transform: uppercase; }
+  .log-field { margin-bottom: 16px; }
+  .log-label { font-size: 10px; color: var(--fg3); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+  .log-input {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border);
+    color: var(--fg); font-family: var(--font); font-size: 16px;
+    padding: 10px 12px; border-radius: var(--radius); outline: none;
+  }
+  .log-input:focus { border-color: var(--fg3); }
+  .log-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px; cursor: pointer;
+  }
+  .log-toggle-label { font-size: 13px; color: var(--fg2); }
+  .toggle-pill {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: var(--bg3); position: relative; transition: background 0.2s;
+    border: 1px solid var(--border);
+  }
+  .toggle-pill.on { background: var(--fg); border-color: var(--fg); }
+  .toggle-pill::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bg); transition: transform 0.2s;
+  }
+  .toggle-pill.on::after { transform: translateX(16px); background: var(--bg); }
+  .log-save {
+    width: 100%; padding: 12px; background: var(--fg); color: var(--bg);
+    border: none; font-family: var(--font); font-size: 11px;
+    letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer;
+    border-radius: var(--radius); margin-top: 4px;
+  }
+  .log-save:hover { opacity: 0.85; }
+  .log-delete {
+    width: 100%; padding: 10px; background: none; color: var(--fg3);
+    border: 1px solid var(--border); font-family: var(--font); font-size: 10px;
+    letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer;
+    border-radius: var(--radius); margin-top: 8px;
+  }
+  .log-delete:hover { color: var(--fg); border-color: var(--fg3); }
+
+  /* STATS */
+  .stats { padding: 20px; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 10px; text-align: center;
+  }
+  .stat-val { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .stat-lbl { font-size: 9px; color: var(--fg3); letter-spacing: 0.15em; text-transform: uppercase; }
+  .recent-title { font-size: 10px; color: var(--fg3); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px; }
+  .recent-list { display: flex; flex-direction: column; gap: 1px; }
+  .recent-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; background: var(--bg2); border-radius: var(--radius);
+    font-size: 12px;
+  }
+  .recent-date { color: var(--fg3); }
+  .recent-vals { display: flex; gap: 12px; }
+  .recent-val { display: flex; gap: 4px; align-items: center; }
+  .recent-key { color: var(--fg3); font-size: 10px; letter-spacing: 0.1em; }
+
+  /* CHART */
+  .chart-wrap { margin-bottom: 20px; }
+  .chart-title { font-size: 10px; color: var(--fg3); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 12px; }
+  .chart-svg { width: 100%; height: 80px; }
+
+  /* HIDDEN */
+  .hidden { display: none; }
+
+  @media (prefers-color-scheme: dark) {
+    .cal-day.logged { background: #f0f0f0; color: #0a0a0a; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <span class="logo">Track</span>
+  <div class="month-nav">
+    <button class="nav-btn" id="prevMonth">‹</button>
+    <span class="month-label" id="monthLabel"></span>
+    <button class="nav-btn" id="nextMonth">›</button>
+  </div>
+  <span style="font-size:11px;color:var(--fg3);letter-spacing:0.1em" id="yearLabel"></span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="weight">Weight</div>
+  <div class="tab" data-tab="creatine">Creatine</div>
+  <div class="tab" data-tab="gym">Gym</div>
+</div>
+
+<div class="cal-wrap">
+  <div class="day-headers">
+    <div class="day-hdr">Mo</div><div class="day-hdr">Tu</div>
+    <div class="day-hdr">We</div><div class="day-hdr">Th</div>
+    <div class="day-hdr">Fr</div><div class="day-hdr">Sa</div>
+    <div class="day-hdr">Su</div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<div class="log-panel" id="logPanel">
+  <div class="log-date" id="logDate"></div>
+
+  <!-- WEIGHT -->
+  <div id="weightFields">
+    <div class="log-field">
+      <div class="log-label">Weight (kg)</div>
+      <input class="log-input" type="number" id="weightVal" step="0.1" placeholder="0.0" inputmode="decimal">
+    </div>
+  </div>
+
+  <!-- CREATINE -->
+  <div id="creatineFields" class="hidden">
+    <div class="log-field">
+      <div class="log-label">Taken today</div>
+      <div class="log-toggle" id="creatineToggle">
+        <span class="log-toggle-label">Creatine</span>
+        <div class="toggle-pill" id="creatinePill"></div>
+      </div>
+    </div>
+    <div class="log-field">
+      <div class="log-label">Dose (g)</div>
+      <input class="log-input" type="number" id="creatineDose" step="0.5" value="5" inputmode="decimal">
+    </div>
+  </div>
+
+  <!-- GYM -->
+  <div id="gymFields" class="hidden">
+    <div class="log-field">
+      <div class="log-label">Trained today</div>
+      <div class="log-toggle" id="gymToggle">
+        <span class="log-toggle-label">Gym</span>
+        <div class="toggle-pill" id="gymPill"></div>
+      </div>
+    </div>
+    <div class="log-field">
+      <div class="log-label">Notes (optional)</div>
+      <input class="log-input" type="text" id="gymNotes" placeholder="push / pull / legs..." autocomplete="off">
+    </div>
+  </div>
+
+  <button class="log-save" id="saveBtn">Save</button>
+  <button class="log-delete" id="deleteBtn">Clear entry</button>
+</div>
+
+<div class="stats hidden" id="statsPanel">
+  <div class="stat-row" id="statRow"></div>
+  <div class="chart-wrap" id="chartWrap"></div>
+  <div class="recent-title">Recent entries</div>
+  <div class="recent-list" id="recentList"></div>
+</div>
+
+<script>
+const STORE_KEY = 'track_v1';
+let state = { tab: 'weight', year: 0, month: 0, selectedDate: null, creatineOn: false, gymOn: false };
+let data = {};
+
+function load() {
+  try { data = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { data = {}; }
+  const now = new Date();
+  state.year = now.getFullYear();
+  state.month = now.getMonth();
+}
+
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+}
+
+function dateKey(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function renderCalendar() {
+  const { year, month, tab } = state;
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('monthLabel').textContent = months[month];
+  document.getElementById('yearLabel').textContent = year;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  const startOffset = (firstDay === 0) ? 6 : firstDay - 1; // Mon-start
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const prevDays = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const todayStr = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Prev month
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const d = prevDays - i;
+    const m = month === 0 ? 11 : month - 1;
+    const y = month === 0 ? year - 1 : year;
+    const cell = makeCell(y, m, d, true);
+    grid.appendChild(cell);
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = dateKey(year, month, d);
+    const isToday = key === todayStr;
+    const isLogged = isLoggedForTab(key, tab);
+    const cell = makeCell(year, month, d, false, isToday, isLogged, key);
+    grid.appendChild(cell);
+  }
+  // Next month fill
+  const total = startOffset + daysInMonth;
+  const remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let d = 1; d <= remaining; d++) {
+    const m = month === 11 ? 0 : month + 1;
+    const y = month === 11 ? year + 1 : year;
+    const cell = makeCell(y, m, d, true);
+    grid.appendChild(cell);
+  }
+}
+
+function isLoggedForTab(key, tab) {
+  const entry = data[key];
+  if (!entry) return false;
+  if (tab === 'weight') return entry.weight !== undefined;
+  if (tab === 'creatine') return entry.creatine === true;
+  if (tab === 'gym') return entry.gym === true;
+  return false;
+}
+
+function makeCell(y, m, d, otherMonth, isToday, isLogged, key) {
+  const el = document.createElement('div');
+  el.className = 'cal-day' + (otherMonth ? ' other-month' : '') + (isToday ? ' today' : '') + (isLogged ? ' logged' : '');
+  el.innerHTML = `<span class="day-num">${d}</span>${isLogged ? '<div class="day-dot"></div>' : ''}`;
+  if (!otherMonth) {
+    el.addEventListener('click', () => selectDate(y, m, d));
+  } else {
+    el.classList.add('empty');
+  }
+  return el;
+}
+
+function selectDate(y, m, d) {
+  state.selectedDate = { y, m, d };
+  const key = dateKey(y, m, d);
+  const entry = data[key] || {};
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dow = new Date(y, m, d).getDay();
+  const dowStr = days[(dow + 6) % 7];
+  document.getElementById('logDate').textContent = `${dowStr} ${d} ${months[m]} ${y}`;
+
+  // Populate fields
+  document.getElementById('weightVal').value = entry.weight !== undefined ? entry.weight : '';
+  document.getElementById('creatineDose').value = entry.creatineDose !== undefined ? entry.creatineDose : 5;
+
+  state.creatineOn = entry.creatine === true;
+  state.gymOn = entry.gym === true;
+  document.getElementById('gymNotes').value = entry.gymNotes || '';
+
+  updatePills();
+  showPanel('log');
+}
+
+function updatePills() {
+  const cp = document.getElementById('creatinePill');
+  const gp = document.getElementById('gymPill');
+  cp.classList.toggle('on', state.creatineOn);
+  gp.classList.toggle('on', state.gymOn);
+}
+
+function showPanel(which) {
+  document.getElementById('logPanel').classList.toggle('hidden', which !== 'log');
+  document.getElementById('statsPanel').classList.toggle('hidden', which !== 'stats');
+}
+
+function renderStats() {
+  const { tab } = state;
+  const statRow = document.getElementById('statRow');
+  const recentList = document.getElementById('recentList');
+  const chartWrap = document.getElementById('chartWrap');
+
+  const allKeys = Object.keys(data).sort().reverse();
+
+  if (tab === 'weight') {
+    const weights = allKeys.filter(k => data[k].weight !== undefined).map(k => ({ k, v: data[k].weight }));
+    const recent = weights[0];
+    const avg = weights.length ? (weights.reduce((s,e) => s + e.v, 0) / weights.length).toFixed(1) : '—';
+    const min = weights.length ? Math.min(...weights.map(e => e.v)).toFixed(1) : '—';
+    const max = weights.length ? Math.max(...weights.map(e => e.v)).toFixed(1) : '—';
+    statRow.innerHTML = `
+      <div class="stat-card"><div class="stat-val">${recent ? recent.v.toFixed(1) : '—'}</div><div class="stat-lbl">Last kg</div></div>
+      <div class="stat-card"><div class="stat-val">${avg}</div><div class="stat-lbl">Avg kg</div></div>
+      <div class="stat-card"><div class="stat-val">${weights.length}</div><div class="stat-lbl">Entries</div></div>
+    `;
+    // Chart
+    const last30 = weights.slice(0, 30).reverse();
+    chartWrap.innerHTML = `<div class="chart-title">Weight — last 30 entries</div>${renderLineChart(last30.map(e => e.v))}`;
+    // Recent
+    recentList.innerHTML = weights.slice(0, 10).map(e => `
+      <div class="recent-item">
+        <span class="recent-date">${e.k}</span>
+        <span>${e.v.toFixed(1)} kg</span>
+      </div>`).join('');
+
+  } else if (tab === 'creatine') {
+    const taken = allKeys.filter(k => data[k].creatine === true);
+    const streak = calcStreak(taken);
+    statRow.innerHTML = `
+      <div class="stat-card"><div class="stat-val">${taken.length}</div><div class="stat-lbl">Days taken</div></div>
+      <div class="stat-card"><div class="stat-val">${streak}</div><div class="stat-lbl">Streak</div></div>
+      <div class="stat-card"><div class="stat-val">${taken.length ? (taken.reduce((s,k) => s + (data[k].creatineDose || 5), 0)).toFixed(0) : 0}g</div><div class="stat-lbl">Total</div></div>
+    `;
+    chartWrap.innerHTML = '';
+    recentList.innerHTML = taken.slice(0, 10).map(k => `
+      <div class="recent-item">
+        <span class="recent-date">${k}</span>
+        <span>${data[k].creatineDose || 5}g</span>
+      </div>`).join('');
+
+  } else if (tab === 'gym') {
+    const gymDays = allKeys.filter(k => data[k].gym === true);
+    const streak = calcStreak(gymDays);
+    const thisMonth = gymDays.filter(k => k.startsWith(`${state.year}-${String(state.month+1).padStart(2,'0')}`));
+    statRow.innerHTML = `
+      <div class="stat-card"><div class="stat-val">${gymDays.length}</div><div class="stat-lbl">Total days</div></div>
+      <div class="stat-card"><div class="stat-val">${streak}</div><div class="stat-lbl">Streak</div></div>
+      <div class="stat-card"><div class="stat-val">${thisMonth.length}</div><div class="stat-lbl">This month</div></div>
+    `;
+    chartWrap.innerHTML = '';
+    recentList.innerHTML = gymDays.slice(0, 10).map(k => `
+      <div class="recent-item">
+        <span class="recent-date">${k}</span>
+        <span style="color:var(--fg2);font-size:11px">${data[k].gymNotes || ''}</span>
+      </div>`).join('');
+  }
+}
+
+function calcStreak(sortedDesc) {
+  if (!sortedDesc.length) return 0;
+  let streak = 0;
+  let d = new Date();
+  d.setHours(0,0,0,0);
+  for (let i = 0; i < sortedDesc.length; i++) {
+    const k = sortedDesc[i];
+    const [y,m,day] = k.split('-').map(Number);
+    const kd = new Date(y, m-1, day);
+    const diff = Math.round((d - kd) / 86400000);
+    if (diff === 0 || diff === 1) { streak++; d = kd; }
+    else break;
+  }
+  return streak;
+}
+
+function renderLineChart(vals) {
+  if (vals.length < 2) return '<div style="font-size:11px;color:var(--fg3);padding:20px 0">Not enough data</div>';
+  const w = 440, h = 70, pad = 4;
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const xs = vals.map((_, i) => pad + (i / (vals.length - 1)) * (w - pad*2));
+  const ys = vals.map(v => h - pad - ((v - min) / range) * (h - pad*2));
+  const path = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  const fg = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || '#0a0a0a';
+  const fg3 = getComputedStyle(document.documentElement).getPropertyValue('--fg3').trim() || '#999';
+  return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <path d="${path}" fill="none" stroke="var(--fg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${xs.map((x, i) => `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2.5" fill="var(--fg)"/>`).join('')}
+  </svg>`;
+}
+
+// Events
+document.getElementById('prevMonth').addEventListener('click', () => {
+  if (state.month === 0) { state.month = 11; state.year--; } else state.month--;
+  state.selectedDate = null;
+  showPanel('none');
+  renderCalendar();
+});
+document.getElementById('nextMonth').addEventListener('click', () => {
+  if (state.month === 11) { state.month = 0; state.year++; } else state.month++;
+  state.selectedDate = null;
+  showPanel('none');
+  renderCalendar();
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    state.tab = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    state.selectedDate = null;
+    showPanel('none');
+    renderCalendar();
+    renderStats();
+    showPanel('stats');
+  });
+});
+
+document.getElementById('creatineToggle').addEventListener('click', () => {
+  state.creatineOn = !state.creatineOn;
+  updatePills();
+});
+document.getElementById('gymToggle').addEventListener('click', () => {
+  state.gymOn = !state.gymOn;
+  updatePills();
+});
+
+function getTabFields() {
+  const t = state.tab;
+  document.getElementById('weightFields').classList.toggle('hidden', t !== 'weight');
+  document.getElementById('creatineFields').classList.toggle('hidden', t !== 'creatine');
+  document.getElementById('gymFields').classList.toggle('hidden', t !== 'gym');
+}
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  if (!state.selectedDate) return;
+  const { y, m, d } = state.selectedDate;
+  const key = dateKey(y, m, d);
+  if (!data[key]) data[key] = {};
+  const entry = data[key];
+
+  if (state.tab === 'weight') {
+    const v = parseFloat(document.getElementById('weightVal').value);
+    if (!isNaN(v) && v > 0) entry.weight = v; else delete entry.weight;
+  } else if (state.tab === 'creatine') {
+    if (state.creatineOn) {
+      entry.creatine = true;
+      entry.creatineDose = parseFloat(document.getElementById('creatineDose').value) || 5;
+    } else {
+      delete entry.creatine; delete entry.creatineDose;
+    }
+  } else if (state.tab === 'gym') {
+    if (state.gymOn) {
+      entry.gym = true;
+      const notes = document.getElementById('gymNotes').value.trim();
+      if (notes) entry.gymNotes = notes; else delete entry.gymNotes;
+    } else {
+      delete entry.gym; delete entry.gymNotes;
+    }
+  }
+
+  if (Object.keys(entry).length === 0) delete data[key];
+  save();
+  renderCalendar();
+  showPanel('none');
+  state.selectedDate = null;
+});
+
+document.getElementById('deleteBtn').addEventListener('click', () => {
+  if (!state.selectedDate) return;
+  const { y, m, d } = state.selectedDate;
+  const key = dateKey(y, m, d);
+  if (data[key]) {
+    if (state.tab === 'weight') { delete data[key].weight; }
+    else if (state.tab === 'creatine') { delete data[key].creatine; delete data[key].creatineDose; }
+    else if (state.tab === 'gym') { delete data[key].gym; delete data[key].gymNotes; }
+    if (Object.keys(data[key]).length === 0) delete data[key];
+  }
+  save();
+  renderCalendar();
+  showPanel('none');
+  state.selectedDate = null;
+});
+
+// Init
+load();
+renderCalendar();
+getTabFields();
+
+// Show stats by default for current tab
+renderStats();
+showPanel('stats');
+
+// Update fields when tab changes (already handled in tab click)
+// Also update fields when log panel shown
+const origSelect = selectDate;
+window.selectDate = function(y, m, d) {
+  origSelect(y, m, d);
+  getTabFields();
+};
+</script>
+</body>
+</html>
