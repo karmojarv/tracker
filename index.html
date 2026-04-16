@@ -144,6 +144,22 @@
   .chart-svg { width: 100%; height: 80px; }
   .hidden { display: none; }
 
+  .dash-section-label { font-size:10px;color:var(--fg3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px; }
+  .today-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px; }
+  .today-card {
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 10px;text-align:center;cursor:pointer;transition:background 0.1s;
+  }
+  .today-card:hover { background:var(--bg3); }
+  .today-card.done { background:var(--fg);color:var(--bg); }
+  .today-card-label { font-size:9px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;opacity:0.6; }
+  .today-card-val { font-size:15px;font-weight:500; }
+  .streak-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:8px; }
+  .streak-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 10px;text-align:center; }
+  .streak-val { font-size:22px;font-weight:600;margin-bottom:4px; }
+  .streak-lbl { font-size:9px;color:var(--fg3);letter-spacing:0.15em;text-transform:uppercase; }
+  @media (prefers-color-scheme: dark) { .today-card.done { background:#f0f0f0;color:#0a0a0a; } }
+
   .user-menu {
     position: absolute; top: 52px; left: 12px; z-index: 100;
     background: var(--bg); border: 1px solid var(--border);
@@ -258,10 +274,17 @@
   </div>
 
   <div class="stats hidden" id="statsPanel">
-    <div class="stat-row" id="statRow"></div>
-    <div class="chart-wrap" id="chartWrap"></div>
-    <div class="recent-title">Recent entries</div>
-    <div class="recent-list" id="recentList"></div>
+    <div id="dashboardView">
+      <div id="todaySection" style="margin-bottom:20px"></div>
+      <div id="streakSection" style="margin-bottom:20px"></div>
+      <div id="weightChartSection"></div>
+    </div>
+    <div id="tabStatsView" class="hidden">
+      <div class="stat-row" id="statRow"></div>
+      <div class="chart-wrap" id="chartWrap"></div>
+      <div class="recent-title">Recent entries</div>
+      <div class="recent-list" id="recentList"></div>
+    </div>
   </div>
 </div>
 
@@ -353,7 +376,7 @@ async function pullAll(){
     });
     localStorage.setItem(STORE_KEY,JSON.stringify(data));
     syncDot('ok');
-    renderCalendar();renderStats();showPanel('stats');
+    renderCalendar();showStatsView('dashboard');renderStats();showPanel('stats');
   }catch(e){console.error(e);syncDot('err');}
 }
 
@@ -372,7 +395,7 @@ function startApp(){
   try{data=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');}catch{data={};}
   const now=new Date();
   state.year=now.getFullYear();state.month=now.getMonth();
-  renderCalendar();renderStats();showPanel('stats');
+  renderCalendar();showStatsView('dashboard');renderStats();showPanel('stats');
   pullAll();
 }
 
@@ -553,7 +576,8 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   localStorage.setItem(STORE_KEY,JSON.stringify(data));
   flashSave();
   renderCalendar();
-  renderStats();
+  showStatsView('dashboard');
+  renderDashboard();
   showLogView('summary');
   document.getElementById('logViewToggleBtn').textContent='Edit';
 });
@@ -571,13 +595,73 @@ document.getElementById('deleteBtn').addEventListener('click',async()=>{
   }
   localStorage.setItem(STORE_KEY,JSON.stringify(data));
   renderCalendar();
-  renderStats();
+  showStatsView('dashboard');
+  renderDashboard();
   showPanel('stats');
   state.selectedDate=null;
 });
 
-// STATS
-function renderStats(){
+// DASHBOARD
+function renderDashboard(){
+  const allKeys=Object.keys(data).sort().reverse();
+  const now=new Date();
+  const todayKey=dk(now.getFullYear(),now.getMonth(),now.getDate());
+  const todayEntry=data[todayKey]||{};
+
+  // Today section
+  const gymDone=todayEntry.gym===true;
+  const weightDone=todayEntry.weight!==undefined;
+  const creatineDone=todayEntry.creatine===true;
+  const gymVal=gymDone?(todayEntry.gymNotes||'done'):'—';
+  const weightVal=weightDone?todayEntry.weight.toFixed(1)+' kg':'—';
+  const creatineVal=creatineDone?(todayEntry.creatineDose||5)+'g':'—';
+
+  document.getElementById('todaySection').innerHTML=`
+    <div class="dash-section-label">Today</div>
+    <div class="today-grid">
+      <div class="today-card${gymDone?' done':''}" onclick="switchTab('gym')">
+        <div class="today-card-label">Gym</div>
+        <div class="today-card-val">${gymVal}</div>
+      </div>
+      <div class="today-card${weightDone?' done':''}" onclick="switchTab('weight')">
+        <div class="today-card-label">Weight</div>
+        <div class="today-card-val">${weightVal}</div>
+      </div>
+      <div class="today-card${creatineDone?' done':''}" onclick="switchTab('creatine')">
+        <div class="today-card-label">Creatine</div>
+        <div class="today-card-val">${creatineVal}</div>
+      </div>
+    </div>`;
+
+  // Streaks
+  const gymDays=allKeys.filter(k=>data[k].gym===true);
+  const creatineDays=allKeys.filter(k=>data[k].creatine===true);
+  const weightDays=allKeys.filter(k=>data[k].weight!==undefined);
+  const thisMonth=gymDays.filter(k=>k.startsWith(`${state.year}-${String(state.month+1).padStart(2,'0')}`));
+
+  document.getElementById('streakSection').innerHTML=`
+    <div class="dash-section-label">Streaks</div>
+    <div class="streak-grid">
+      <div class="streak-card"><div class="streak-val">${streak(gymDays)}</div><div class="streak-lbl">Gym</div></div>
+      <div class="streak-card"><div class="streak-val">${streak(creatineDays)}</div><div class="streak-lbl">Creatine</div></div>
+      <div class="streak-card"><div class="streak-val">${thisMonth.length}</div><div class="streak-lbl">Gym / mo</div></div>
+    </div>`;
+
+  // Weight chart
+  const ws=weightDays.map(k=>({k,v:data[k].weight}));
+  const last=ws[0];
+  const avg=ws.length?(ws.reduce((s,e)=>s+e.v,0)/ws.length).toFixed(1):'—';
+  document.getElementById('weightChartSection').innerHTML=`
+    <div class="dash-section-label">Weight</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${last?last.v.toFixed(1):'—'}</div><div class="streak-lbl">Last kg</div></div>
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${avg}</div><div class="streak-lbl">Avg kg</div></div>
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${ws.length}</div><div class="streak-lbl">Entries</div></div>
+    </div>
+    ${lineChart(ws.slice(0,30).reverse().map(e=>e.v))}`;
+}
+
+function renderTabStats(){
   const {tab}=state;
   const SR=document.getElementById('statRow');
   const RL=document.getElementById('recentList');
@@ -611,6 +695,28 @@ function renderStats(){
     RL.innerHTML=gd.slice(0,10).map(k=>`<div class="recent-item"><span class="recent-date">${k}</span><span style="color:var(--fg2);font-size:11px">${data[k].gymNotes||''}</span></div>`).join('');
   }
 }
+
+function renderStats(){
+  if(state.statsView==='dashboard'){
+    renderDashboard();
+  } else {
+    renderTabStats();
+  }
+}
+
+function showStatsView(which){
+  state.statsView=which;
+  document.getElementById('dashboardView').classList.toggle('hidden',which!=='dashboard');
+  document.getElementById('tabStatsView').classList.toggle('hidden',which!=='tab');
+}
+
+function switchTab(tab){
+  state.tab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  showStatsView('tab');
+  renderTabStats();
+  showPanel('stats');
+}
 function streak(sd){
   if(!sd.length)return 0;
   let s=0,d=new Date();d.setHours(0,0,0,0);
@@ -636,7 +742,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   state.tab=t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
-  state.selectedDate=null;showPanel('none');renderCalendar();renderStats();showPanel('stats');
+  state.selectedDate=null;showPanel('none');renderCalendar();showStatsView('dashboard');renderStats();showPanel('stats');
 }));
 
 
