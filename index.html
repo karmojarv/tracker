@@ -170,7 +170,11 @@
   .user-menu-item:hover { background: var(--bg2); color: var(--fg); }
 
   @media (prefers-color-scheme: dark) {
-    .cal-day.logged { background: #444; color: #f0f0f0; }
+    .cal-day.logged-gym { background: #444; color: #f0f0f0; }
+    .cal-day.logged-weight { border: 1.5px solid #666; }
+    .cal-day.logged-creatine { border: 1.5px dashed #555; }
+    .cal-day.logged-gym.logged-weight { background: #444; color: #f0f0f0; border: 1.5px solid #888; }
+    .cal-day.logged-gym.logged-creatine { background: #444; color: #f0f0f0; border: 1.5px dashed #666; }
   }
 </style>
 </head>
@@ -470,13 +474,19 @@ function renderCalendar(){
   }
 }
 function isLogged(key){
-  const e=data[key];if(!e)return false;
-  return e.weight!==undefined||e.creatine===true||e.gym===true;
+  const e=data[key];if(!e)return null;
+  const types=[];
+  if(e.gym===true) types.push('gym');
+  if(e.weight!==undefined) types.push('weight');
+  if(e.creatine===true) types.push('creatine');
+  return types.length?types:null;
 }
-function mkCell(y,m,d,other,isToday,isLog,key){
+function mkCell(y,m,d,other,isToday,types,key){
   const el=document.createElement('div');
-  el.className='cal-day'+(other?' other-month':'')+(isToday?' today':'')+(isLog?' logged':'');
-  el.innerHTML=`<span class="day-num">${d}</span>${isLog?'<div class="day-dot"></div>':''}`;
+  let cls='cal-day'+(other?' other-month':'')+(isToday?' today':'');
+  if(types) types.forEach(t=>cls+=' logged-'+t);
+  el.className=cls;
+  el.innerHTML=`<span class="day-num">${d}</span>${types?'<div class="day-dot"></div>':''}`;
   if(!other)el.addEventListener('click',()=>selectDate(y,m,d));
   else el.classList.add('empty');
   return el;
@@ -651,12 +661,28 @@ function renderDashboard(){
   const ws=weightDays.map(k=>({k,v:data[k].weight}));
   const last=ws[0];
   const avg=ws.length?(ws.reduce((s,e)=>s+e.v,0)/ws.length).toFixed(1):'—';
+  const prev=ws[1];
+  const delta=last&&prev?(last.v-prev.v):null;
+  const deltaStr=delta!=null?(delta>0?'+'+delta.toFixed(1):delta.toFixed(1)+' kg'):'';
+  const deltaCol=delta==null?'':(delta>0?'color:#c0392b':delta<0?'color:#27ae60':'color:var(--fg3)');
+  const lowest=ws.length?Math.min(...ws.map(e=>e.v)).toFixed(1):'—';
+  const highest=ws.length?Math.max(...ws.map(e=>e.v)).toFixed(1):'—';
   document.getElementById('weightChartSection').innerHTML=`
     <div class="dash-section-label">Weight</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${last?last.v.toFixed(1):'—'}</div><div class="streak-lbl">Last kg</div></div>
-      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${avg}</div><div class="streak-lbl">Avg kg</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div class="streak-card" style="flex:2">
+        <div style="display:flex;align-items:baseline;gap:8px;justify-content:center">
+          <div class="streak-val" style="font-size:22px">${last?last.v.toFixed(1):'—'}</div>
+          ${deltaStr?`<div style="font-size:12px;${deltaCol}">${deltaStr}</div>`:''}
+        </div>
+        <div class="streak-lbl">Last kg</div>
+      </div>
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${avg}</div><div class="streak-lbl">Avg</div></div>
       <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:18px">${ws.length}</div><div class="streak-lbl">Entries</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:16px">${lowest}</div><div class="streak-lbl">Lowest</div></div>
+      <div class="streak-card" style="flex:1"><div class="streak-val" style="font-size:16px">${highest}</div><div class="streak-lbl">Highest</div></div>
     </div>
     ${lineChart(ws.slice(0,30).reverse().map(e=>e.v))}`;
 }
